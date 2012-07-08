@@ -1,0 +1,140 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use autodie;
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+use Soulmate::Loader;
+use Soulmate::Matcher;
+use Getopt::Long;
+use Text::Trim;
+use JSON;
+
+
+my %opt;
+our $debug = 0;
+GetOptions(\%opt,
+    'action|a=s', 'namespace=s', 'items|i:s', 'stop_words|s:s',
+    'help|h', 'query|s:s', 'debug|d'
+) or usage();
+
+$debug = $opt{debug} if $opt{debug};
+usage() unless $opt{action};
+usage() unless $opt{namespace};
+usage() if $opt{help};
+parse_stopwords($opt{stop_words}) if $opt{stop_words};
+
+my %action = (load => \&load, add => \&add, remove => \&remove, query => \&query);
+my $method = $action{$opt{action}} || usage();
+&$method(%opt);
+
+sub parse_stopwords {
+    my $filename = shift;
+    print "Loading stopwords from $filename\n";
+    open my $fh, '<', $filename;
+    while (my $line = <$fh>) {
+        chomp $line;
+        next unless $line;
+        my $word = trim($line);
+        Soulmate->add_stopword($word => 1);
+    }
+}
+
+sub usage {
+    print <<USAGE;
+$0: Redis-backed autocomplete engine
+
+$0 --action load --stop-words my/stopwords.json --items my/items.json
+
+Redis server will default to 127.0.0.1:6379 if \$ENV{REDIS_SERVER} not set.
+
+Options:
+  action        Required. What do you want to do today?
+  namespace     Required. The namespace for this set of items.
+  stop-words    Optional. Filename containing stop words
+  items         Optional. Filename containing items. If not specified, defaults to STDIN.
+
+Actions:
+  load      Replaces collection with items from specified file or STDIN
+  add       Add items to collection from specified file or STDIN
+  remove    Remove items from collection from specified file OR STDIN
+  query     Queries for items from collection 
+USAGE
+    exit 0;
+}
+
+sub _get_filehandle {
+    my $filename = shift;
+    my $fh = $STDIN;
+    if ($filename) {
+        die "Invalid file $filename" unless -e $filename;
+        open $fh, '<', $filename;
+    }
+    return $fh;
+}
+
+sub load {
+    my %opt = @_;
+    print "Loading items to $opt{namespace} from $opt{items}\n";
+    my $loader = Soulmate::Loader->new(namespace => $opt{namespace}, debug => $opt{debug});
+    my $fh = _get_filehandle($opt{items});
+    my @items;
+    while (my $line = <$fh>) {
+        chomp $line;
+        next unless $line;
+        # $debug and print "JSON: $line\n";
+        my $item = decode_json($line);
+        next unless ref $item;
+        push @items, $item;
+    }
+    $loader->load(\@items);
+    print "Loaded a total of @{[scalar @items]} items\n";
+}
+
+sub add {
+    my %opt = @_;
+    print "Adding items to $opt{namespace} from $opt{items}\n";
+    my $loader = Soulmate->Loader->new(namespace => $opt{namespace}, debug => $opt{debug});
+    my $fh = _get_filehandle($opt{items});
+    my $count = 0;
+    while (my $line = <$fh>) {
+        chomp $line;
+        next unless $line;
+        my $item = decode_json($line);
+        next unless ref $item;
+        $loader->add($item);
+        $count++;
+    }
+    print "Loaded a total of $count items\n";
+}
+
+sub remove {
+    my %opt = @_;
+    print "Removing items to $opt{namespace} from $opt{items}\n";
+    my $loader = Soulmate->Loader->new(namespace => $opt{namespace}, debug => $opt{debug});
+    my $fh = _get_filehandle($opt{items});
+    my $count = 0;
+    while (my $line = <$fh>) {
+        chomp $line;
+        next unless $line;
+        my $item = decode_json($line);
+        next unless ref $item;
+        $loader->remove($item);
+        $count++;
+    }
+    print "Removed a total of $count items\n";
+}
+
+sub query {
+    my %opt = @_;
+    print "> Querying $opt{namespace} for $opt{query}\n";
+    my $matcher = Soulmate::Matcher->new(namespace => $opt{namespace}, debug => $opt{debug});
+    my $results = $matcher->matches_for_term($opt{query}, limit => 0);
+    for my $result (@$results) {
+        print join ", ", map { "$_: $result->{$_}" } keys %$result;
+        print "\n";
+    }
+    print "Found " . scalar(@$results) . " matches\n";
+}
+

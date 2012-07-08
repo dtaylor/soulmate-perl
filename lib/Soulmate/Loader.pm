@@ -1,6 +1,7 @@
 package Soulmate::Loader;
 use Moose;
-with 'Soulmate::Role::Helpers';
+extends 'Soulmate';
+__PACKAGE__->meta->make_immutable;
 use JSON;
 
 
@@ -10,6 +11,7 @@ sub load {
     # delete the sorted sets for this namespace
     my $r = $self->redis;
     my @phrases = $r->smembers($self->base);
+    $self->log("phrases [@phrases]");
     $r->del($self->base($_), sub {}) foreach @phrases;
     $r->del($self->base, sub {});
     $r->wait_all_responses;
@@ -20,6 +22,7 @@ sub load {
     # everything will work itself out as soon as the cache expires again.
 
     # delete the data stored for this type
+    $self->log("Deleting database");
     $r->del($self->database);
 
     for my $item (@$items) {
@@ -39,7 +42,9 @@ sub add {
    
     my $r = $self->redis;
     $r->hset($self->database, $item->{id}, encode_json($item), sub{});
-    my $phrase = join ' ', $item->{term}, @{ $item->{aliases} || [] };
+    my @aliases = @{ $item->{aliases} || [] };
+    $self->log("ID:$item->{id} aliases: @aliases");
+    my $phrase = join(' ', $item->{term}, @aliases);
     for my $prefix ($self->prefixes_for_phrase($phrase)) {
         $r->sadd($self->base, $prefix, sub {});
         $r->zadd($self->base($prefix), $item->{score} || 0, $item->{id}, sub {});

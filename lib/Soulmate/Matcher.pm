@@ -1,6 +1,7 @@
 package Soulmate::Matcher;
 use Moose;
-with 'Soulmate::Role::Helpers';
+extends 'Soulmate';
+__PACKAGE__->meta->make_immutable;
 use JSON;
 
 sub matches_for_term {
@@ -13,23 +14,25 @@ sub matches_for_term {
 
     return [] unless @words;
 
+    my $r = $self->redis;
     my $cachekey = $self->cachebase(join '|', @words);
-
-    if (!$options{cache} || !self->redis->exists($cachekey)) {
+    $self->log("cache key [$cachekey]");
+    if (!$options{cache} || !$r->exists($cachekey)) {
         my @interkeys = map { $self->base($_) } @words;
-        $self->redis->zinterstore($cachekey, @interkeys);
-        $self->redis->expire($cachekey, 10 * 60) # 10 minute expiration
+        $self->log("Cachekey [$cachekey] Keys: [@interkeys]");
+        $r->zinterstore($cachekey, scalar @interkeys, @interkeys);
+        $r->expire($cachekey, 10 * 60) # 10 minute expiration
     }
 
-    my @ids = $self->redis->zrevrange($cachekey, 0, $options{limit} - 1);
+    my @ids = $r->zrevrange($cachekey, 0, $options{limit} - 1);
+    $self->log("found [@ids]");
     if (@ids) {
         my @results = grep { defined $_ }
-            $self->redis->hmget($self->database, @ids);
+            $r->hmget($self->database, @ids);
         return [ map { decode_json $_ } @results ];
     }
     return [];
 }
-
 
 1;
 

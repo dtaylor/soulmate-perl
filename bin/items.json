@@ -1,0 +1,5 @@
+{"id":1, "term":"foo", "aliases":["foo1","foo2"], "data":{}}
+{"id":2, "term":"bar", "aliases":["bar"], "data":{}}
+{"id":3, "term":"baz", "score": 1, "aliases":["baz1"], "data":{}}
+{"id":4, "term":"one", "aliases":["one"], "data":{}}
+{"id":5, "term":"only", "data":{}}
