@@ -17,7 +17,7 @@ sub prefixes_for_phrase {
         }
     }
     @prefixes = uniq @prefixes;
-    warn "Prefixes for [$phrase] are [@prefixes]\n";
+    $self->log("Prefixes for [$phrase] are [@prefixes]");
     return @prefixes;
 }
 

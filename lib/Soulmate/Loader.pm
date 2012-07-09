@@ -7,6 +7,7 @@ use JSON;
 
 sub load {
     my ($self, $items) = @_;
+    $items ||= [];
 
     # delete the sorted sets for this namespace
     my $r = $self->redis;
@@ -28,6 +29,7 @@ sub load {
     for my $item (@$items) {
         $self->add($item, skip_duplicate_check => 1);
     }
+    return scalar @$items;
 }
 
 # Item is a hashref with keys "id", "term", "score", "aliases", "data"
@@ -43,8 +45,8 @@ sub add {
     my $r = $self->redis;
     $r->hset($self->database, $item->{id}, encode_json($item), sub{});
     my @aliases = @{ $item->{aliases} || [] };
-    $self->log("ID:$item->{id} aliases: @aliases");
-    my $phrase = join(' ', $item->{term}, @aliases);
+    my $phrase  = join ' ', $item->{term} || '', @aliases;
+    $self->log("Adding id: $item->{id} phrase: $phrase");
     for my $prefix ($self->prefixes_for_phrase($phrase)) {
         $r->sadd($self->base, $prefix, sub {});
         $r->zadd($self->base($prefix), $item->{score} || 0, $item->{id}, sub {});
@@ -62,10 +64,12 @@ sub remove {
 
     $prev_item = decode_json $prev_item;
     $r->hdel($self->database, $prev_item->{id});
-    my $phrase = join ' ', $item->{term}, @{ $item->{aliases} || [] };
+    my @aliases = @{ $prev_item->{aliases} || [] };
+    my $phrase  = join ' ', $prev_item->{term} || '', @aliases;
+    $self->log("Deleting id: $prev_item->{id} phrase: $phrase");
     for my $prefix ($self->prefixes_for_phrase($phrase)) {
         $r->srem($self->base, $prefix, sub {});
-        $r->zrem($self->base($prefix), $item->{id}, sub {});
+        $r->zrem($self->base($prefix), $prev_item->{id}, sub {});
     } 
     $r->wait_all_responses;
 }
