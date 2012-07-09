@@ -3,3 +3,7 @@
 {"id":3, "term":"baz", "score": 1, "aliases":["baz1"], "data":{}}
 {"id":4, "term":"one", "aliases":["one"], "data":{}}
 {"id":5, "term":"only", "data":{}}
+{"id":6, "term":"only you", "data":{}}
+{"id":7, "term":"only for your eyes", "data":{}}
+{"id":6, "term":"one generous eye", "data":{}}
+

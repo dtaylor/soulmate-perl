@@ -23,8 +23,7 @@ sub prefixes_for_phrase {
 
 sub log {
     my ($self, $msg) = @_;
-    return unless $self->debug;
-    print "$msg\n";
+    $self->debug and print "$msg\n";
 }
 
 sub base {
