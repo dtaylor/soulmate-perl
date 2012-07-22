@@ -12,7 +12,7 @@ sub load {
     # delete the sorted sets for this namespace
     my $r = $self->redis;
     my @phrases = $r->smembers($self->base);
-    $self->log("phrases [@phrases]");
+    #$self->log("phrases [@phrases]");
     $r->del($self->base($_), sub {}) foreach @phrases;
     $r->del($self->base, sub {});
     $r->wait_all_responses;
@@ -46,7 +46,7 @@ sub add {
     $r->hset($self->database, $item->{id}, encode_json($item), sub{});
     my @aliases = @{ $item->{aliases} || [] };
     my $phrase  = join ' ', $item->{term} || '', @aliases;
-    $self->log("Adding id: $item->{id} phrase: $phrase");
+    $self->log("Adding id: $item->{id}");
     for my $prefix ($self->prefixes_for_phrase($phrase)) {
         $r->sadd($self->base, $prefix, sub {});
         $r->zadd($self->base($prefix), $item->{score} || 0, $item->{id}, sub {});

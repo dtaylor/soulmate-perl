@@ -7,14 +7,9 @@ use Redis;
 
 # ABSTRACT: a perl port of the ruby Soulmate Redis autocompleter
 
-has debug => (is => 'ro', isa => 'Bool', default => 0);
+has debug => (is => 'rw', isa => 'Bool', default => 0);
 has min_complete => (is => 'ro', isa => 'Int', default => 2);
 has namespace => (is => 'ro', isa => 'Str', required => 1);
-has redis_url => (is => 'rw', isa => 'Str', lazy_build => 1);
-sub _build_redis_url {
-    my $self = shift;
-    return $ENV{REDIS_SERVER} || '127.0.0.1:6379';
-}
 
 subtype 'Sugar::Redis'
     => as class_type('Redis');

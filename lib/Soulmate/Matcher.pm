@@ -34,5 +34,12 @@ sub matches_for_term {
     return [];
 }
 
+sub data_for_item {
+    my ($self, $id) = @_;
+    my $value = $self->redis->hget($self->database, $id);
+    return unless $value;
+    return decode_json($value);
+}
+
 1;
 
